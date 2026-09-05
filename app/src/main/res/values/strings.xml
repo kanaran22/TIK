@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">tik</string>
+
+    <string name="notification_channel_name">Task reminders</string>
+    <string name="notification_channel_description">Alerts for time- and location-based task reminders</string>
+
+    <string name="action_mark_done">Mark as done</string>
+    <string name="action_snooze">Snooze %1$d min</string>
+
+    <string name="reminder_reason_time">It\'s time for this task.</string>
+    <string name="reminder_reason_arrive">You\'ve arrived at %1$s.</string>
+    <string name="reminder_reason_leave">You\'ve left %1$s.</string>
+    <string name="default_place_name">the saved location</string>
+
+    <string name="widget_description">Shows your active reminders and lets you check them off</string>
+</resources>

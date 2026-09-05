@@ -1,0 +1,53 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!--
+        A map pin moonlighting as a clock face, set to 10:10 (the classic
+        "watch smile") — tik's two reminder kinds, time and place, drawn
+        as one shape. Brutalist Chaos treatment: thick black outline, one
+        yellow fill, a hard offset shadow instead of blur, a rebellious tilt.
+    -->
+    <group
+        android:name="tilt"
+        android:pivotX="54"
+        android:pivotY="54"
+        android:rotation="-7">
+
+        <!-- Hard shadow: a solid black copy of the pin, offset down-right, no blur. -->
+        <path
+            android:fillColor="#111111"
+            android:pathData="M58,24C45.85,24 36,33.85 36,46c0,17.5 22,38 22,38s22,-20.5 22,-38c0,-12.15 -9.85,-22 -22,-22z" />
+
+        <!-- The pin itself. -->
+        <path
+            android:fillColor="#FFDE03"
+            android:strokeColor="#111111"
+            android:strokeWidth="3.6"
+            android:strokeLineJoin="round"
+            android:pathData="M54,20C41.85,20 32,29.85 32,42c0,17.5 22,38 22,38s22,-20.5 22,-38c0,-12.15 -9.85,-22 -22,-22z" />
+
+        <!-- Clock face set into the pin's head. -->
+        <path
+            android:fillColor="#F3F1E7"
+            android:strokeColor="#111111"
+            android:strokeWidth="2.6"
+            android:pathData="M54,40m-13,0a13,13 0 1,0 26,0a13,13 0 1,0 -26,0" />
+
+        <!-- Hands at 10:10 — reads as a small smile. -->
+        <path
+            android:strokeColor="#111111"
+            android:strokeWidth="3.1"
+            android:strokeLineCap="round"
+            android:pathData="M54,40L48,33.5" />
+        <path
+            android:strokeColor="#111111"
+            android:strokeWidth="3.1"
+            android:strokeLineCap="round"
+            android:pathData="M54,40L61.5,32" />
+        <path
+            android:fillColor="#111111"
+            android:pathData="M54,40m-1.7,0a1.7,1.7 0 1,0 3.4,0a1.7,1.7 0 1,0 -3.4,0" />
+    </group>
+</vector>

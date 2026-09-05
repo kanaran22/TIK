@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#F3F1E7</color>
+
+    <!-- Brutalist Chaos palette, for the Glance widget (adapts via values-night). -->
+    <color name="widget_ink">#111111</color>
+    <color name="widget_paper">#F3F1E7</color>
+    <color name="widget_paper_card">#FFFFFF</color>
+    <color name="widget_accent">#FFDE03</color>
+    <color name="widget_muted">#6B6858</color>
+</resources>

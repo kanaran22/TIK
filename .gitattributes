@@ -1,0 +1,14 @@
+# Normalise line endings so the repo stays consistent across Windows/macOS/Linux.
+* text=auto eol=lf
+
+# Must keep platform-native endings to stay executable/runnable.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+gradlew text eol=lf
+
+# Binaries: never touch.
+*.jar  binary
+*.png  binary
+*.webp binary
+*.jks  binary
+*.keystore binary

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark-mode brutalist palette for the Glance widget — a genuine inversion, matching Theme.kt. -->
+    <color name="widget_ink">#F3F1E7</color>
+    <color name="widget_paper">#121212</color>
+    <color name="widget_paper_card">#1B1B1B</color>
+    <color name="widget_accent">#FFE94D</color>
+    <color name="widget_muted">#B9B7AC</color>
+</resources>
