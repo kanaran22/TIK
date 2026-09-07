@@ -14,8 +14,11 @@ class AlarmScheduler(private val context: Context) {
 
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-    private fun pendingIntentFor(task: Task): PendingIntent {
+    private fun pendingIntentFor(task: Task, action: String? = null): PendingIntent {
         val intent = Intent(context, AlarmReceiver::class.java).apply {
+            // Extras are not part of Intent.filterEquals, but the action is — so the two
+            // alarms a task can own stay distinct PendingIntents despite sharing a request code.
+            action?.let { setAction(it) }
             putExtra(NotificationHelper.EXTRA_TASK_ID, task.id)
         }
         return PendingIntent.getBroadcast(
@@ -24,6 +27,17 @@ class AlarmScheduler(private val context: Context) {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun setAlarm(triggerAt: Long, pendingIntent: PendingIntent) {
+        if (canScheduleExactAlarms()) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+        } else {
+            // Fall back to an inexact alarm if the user hasn't granted the
+            // "Alarms & reminders" special permission on Android 12+.
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+        }
     }
 
     /** True if the app is allowed to schedule exact alarms (always true below API 31). */
@@ -39,17 +53,35 @@ class AlarmScheduler(private val context: Context) {
             return
         }
 
-        val pendingIntent = pendingIntentFor(task)
-        if (canScheduleExactAlarms()) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
-        } else {
-            // Fall back to an inexact alarm if the user hasn't granted the
-            // "Alarms & reminders" special permission on Android 12+.
-            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+        setAlarm(triggerAt, pendingIntentFor(task))
+    }
+
+    /**
+     * Combined time+place tasks fire from a geofence *transition*, so a user who is already
+     * standing at the place when the window opens would never be reminded — no crossing, no
+     * event. This alarm fires at the window start so [AlarmReceiver] can check whether they
+     * are already inside the radius.
+     */
+    fun scheduleWindowStartCheck(task: Task) {
+        val triggerAt = ScheduleUtil.nextTimeReminderMillis(task)
+        if (triggerAt == null) {
+            cancelWindowStartCheck(task)
+            return
         }
+        setAlarm(triggerAt, pendingIntentFor(task, ACTION_WINDOW_START_CHECK))
     }
 
     fun cancel(task: Task) {
         alarmManager.cancel(pendingIntentFor(task))
+        cancelWindowStartCheck(task)
+    }
+
+    fun cancelWindowStartCheck(task: Task) {
+        alarmManager.cancel(pendingIntentFor(task, ACTION_WINDOW_START_CHECK))
+    }
+
+    companion object {
+        /** Marks the alarm that opens a combined task's window, rather than a plain time reminder. */
+        const val ACTION_WINDOW_START_CHECK = "com.kanaran.tik.action.WINDOW_START_CHECK"
     }
 }

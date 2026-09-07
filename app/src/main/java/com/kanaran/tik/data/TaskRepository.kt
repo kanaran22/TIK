@@ -52,6 +52,11 @@ class TaskRepository(
         if (task.isTimeReminderEnabled && !task.isLocationReminderEnabled) {
             alarmScheduler.schedule(task)
         }
+        if (task.isCombined) {
+            // The geofence only reports crossings, so this covers "already there when the
+            // window opened" — see AlarmReceiver.handleWindowStartCheck.
+            alarmScheduler.scheduleWindowStartCheck(task)
+        }
         if (task.isLocationReminderEnabled) {
             geofenceHelper.add(task)
         }
@@ -91,6 +96,9 @@ class TaskRepository(
         if (updated.isTimeReminderEnabled && !updated.isLocationReminderEnabled) {
             alarmScheduler.schedule(updated)
         }
+        if (updated.isCombined) {
+            alarmScheduler.scheduleWindowStartCheck(updated)
+        }
         widgetUpdater()
     }
 
@@ -120,6 +128,9 @@ class TaskRepository(
         dao.getActiveTimeReminders()
             .filter { !it.isLocationReminderEnabled }
             .forEach { alarmScheduler.schedule(it) }
+        dao.getActiveTimeReminders()
+            .filter { it.isCombined }
+            .forEach { alarmScheduler.scheduleWindowStartCheck(it) }
         dao.getActiveLocationReminders().forEach { geofenceHelper.add(it) }
     }
 }
