@@ -39,7 +39,7 @@ mono type, sharp corners throughout — in both light and dark mode.
 ## Project structure
 
 ```
-app/src/main/java/com/geotask/app/
+app/src/main/java/com/kanaran/tik/
 ├── data/          Room entities (Task, SavedPlace, TaskCompletion), DAOs,
 │                  database, repository, RepeatType, ScheduleUtil (repeat
 │                  calendar math) and StreakUtil (streak/completion-rate math)
@@ -208,7 +208,7 @@ that before upgrading to AGP 10, which removes the opt-out.
 - A combined time+location task that misses its window fires nothing that
   day (by design) — there's no "fires anyway at window end" fallback.
 - No cloud sync/backup beyond Android's local Auto Backup — everything lives
-  in a local Room database (`geotask.db`). Schema changes currently use
+  in a local Room database (`tik.db`). Schema changes currently use
   `fallbackToDestructiveMigration` (pre-release; revisit before a real
   release so upgrades don't wipe user data).
 - No automated tests yet; `TaskRepository` and `ScheduleUtil` are written so

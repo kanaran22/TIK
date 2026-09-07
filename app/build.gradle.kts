@@ -1,3 +1,12 @@
+import java.util.Properties
+
+// Signing secrets live outside version control. Copy keystore.properties.template
+// to keystore.properties and fill it in; without it, release builds stay unsigned.
+val keystorePropsFile = rootProject.file("keystore.properties")
+val keystoreProps = Properties().apply {
+    if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -6,11 +15,11 @@ plugins {
 }
 
 android {
-    namespace = "com.geotask.app"
+    namespace = "com.kanaran.tik"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.geotask.app"
+        applicationId = "com.kanaran.tik"
         minSdk = 26
         targetSdk = 37
         versionCode = 1
@@ -19,13 +28,28 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            if (keystoreProps.isNotEmpty()) {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8: shrink + obfuscate. Room/Compose/Glance ship their own keep rules,
+            // but a release build must still be launched and smoke-tested before shipping.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = if (keystoreProps.isNotEmpty()) signingConfigs.getByName("release") else null
         }
     }
 
@@ -77,4 +101,13 @@ dependencies {
     implementation(libs.androidx.glance.appwidget)
 
     testImplementation(libs.junit)
+
+    constraints {
+        // play-services-location transitively pulls androidx.fragment 1.1.0 (2019). Nothing
+        // here uses Fragments, but lint's InvalidFragmentVersionForActivityResult check treats
+        // that stale version as a fatal error in a release build. Bump it instead of muting lint.
+        implementation(libs.androidx.fragment) {
+            because("play-services-base drags in fragment 1.1.0, which trips lint on registerForActivityResult")
+        }
+    }
 }
