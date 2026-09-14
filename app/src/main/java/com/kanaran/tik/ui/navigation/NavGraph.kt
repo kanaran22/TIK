@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.kanaran.tik.ui.editor.AddEditTaskScreen
+import com.kanaran.tik.ui.list.ReliabilityCard
 import com.kanaran.tik.ui.list.TaskListScreen
 import com.kanaran.tik.ui.stats.StatsScreen
 import com.kanaran.tik.viewmodel.TaskViewModel
@@ -29,7 +30,10 @@ fun NavGraph(
     onRequestNotificationPermission: () -> Unit,
     onRequestLocationPermission: () -> Unit,
     onRequestBackgroundLocationPermission: () -> Unit,
-    onRequestExactAlarmPermission: () -> Unit
+    onRequestExactAlarmPermission: () -> Unit,
+    reliabilityCard: ReliabilityCard? = null,
+    versionLabel: String = "",
+    onShowReliabilityTips: (() -> Unit)? = null
 ) {
     val navController = rememberNavController()
 
@@ -47,7 +51,8 @@ fun NavGraph(
                 onRequestExactAlarmPermission = onRequestExactAlarmPermission,
                 onAddTask = { navController.navigate("$ROUTE_EDITOR/-1") },
                 onEditTask = { taskId -> navController.navigate("$ROUTE_EDITOR/$taskId") },
-                onOpenStats = { navController.navigate(ROUTE_STATS) }
+                onOpenStats = { navController.navigate(ROUTE_STATS) },
+                reliabilityCard = reliabilityCard
             )
         }
         composable(
@@ -64,7 +69,13 @@ fun NavGraph(
             )
         }
         composable(ROUTE_STATS) {
-            StatsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+            StatsScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                versionLabel = versionLabel,
+                // Brings the hidden card back and returns to the list, where it lives.
+                onShowReliabilityTips = onShowReliabilityTips?.let { show -> { show(); navController.popBackStack() } }
+            )
         }
     }
 

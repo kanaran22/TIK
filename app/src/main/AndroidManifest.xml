@@ -23,6 +23,13 @@
         android:name="android.hardware.location.gps"
         android:required="false" />
 
+    <!-- Android 11+ hides other apps' screens unless declared here. Lets BackgroundReliability
+         check whether this phone has Vivo's Autostart manager before offering to open it. -->
+    <queries>
+        <package android:name="com.vivo.permissionmanager" />
+        <package android:name="com.iqoo.secure" />
+    </queries>
+
     <application
         android:name=".TikApplication"
         android:allowBackup="true"

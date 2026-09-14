@@ -124,6 +124,53 @@ checkbox, and button borders are plain `<shape>` drawables (with `-night`
 color variants) rather than a Glance border modifier, since RemoteViews-backed
 widgets render those more reliably than any first-party alternative.
 
+## Updating tik without losing data
+
+Install a new APK **over** the old one — never uninstall first. Android then keeps
+every task, streak and saved place. An update works only when all three hold:
+
+1. **Same package** — `com.kanaran.tik`. Never change it.
+2. **Same signing key** — `tik-upload.jks`. An APK signed with any other key is
+   refused (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`; on the phone, "App not
+   installed" / "package conflicts with an existing package"). The key and its
+   `keystore.properties` are gitignored, so they exist only on the build machine:
+   **back them up**. Lose the key and the installed app can never be updated again.
+   To change its password without changing the key: `keytool -storepasswd -keystore tik-upload.jks`
+   (then update `keystore.properties`).
+3. **Higher version** — `versionCode` is the git commit count, so every committed
+   build is newer. Installing an older one is refused (`INSTALL_FAILED_VERSION_DOWNGRADE`).
+   The installed version is shown at the bottom of the Stats screen.
+
+A debug APK is signed with a different (debug) key, so it can never update a
+release install — keep them apart.
+
+If an install is refused, **don't uninstall to get past it** — that deletes the
+data. Fix the key or version instead.
+
+When moving to Google Play: Play re-signs apps with its own key by default, which
+would make the Play build unable to update a sideloaded install. Enrol in Play App
+Signing with *"use my own key"* and upload `tik-upload.jks`, so both carry the same
+signature.
+
+As a safety net, Android Auto Backup is on and covers the database — including its
+`-wal`/`-shm` files, since Room keeps recent writes there — so a reinstall on a
+phone with Google backup enabled can restore tasks.
+
+## Phones that stop background apps
+
+Some Android skins — Vivo's FuntouchOS/OriginOS, Xiaomi, Oppo/Realme, Samsung and
+others — pause background apps well beyond stock Android, which delays or drops
+reminders; no code inside the app can override that. On those brands the task
+list shows a **Keep reminders on time** card with the exact settings to change
+(for Vivo: Autostart, background power consumption, notifications, and locking
+tik in Recents) and buttons that open them. It can be hidden and brought back from
+Stats › Battery tips. Stock phones never see it. Detection and wording live in
+`util/BackgroundReliability.kt`; debug builds can fake a brand for testing:
+
+```bash
+adb shell am start -n com.kanaran.tik/.MainActivity --es debug_force_brand vivo
+```
+
 ## Database migrations
 
 The Room schema is at version 3, and each version's schema is exported as JSON to

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -85,7 +86,8 @@ fun TaskListScreen(
     onRequestExactAlarmPermission: () -> Unit,
     onAddTask: () -> Unit,
     onEditTask: (Long) -> Unit,
-    onOpenStats: () -> Unit
+    onOpenStats: () -> Unit,
+    reliabilityCard: ReliabilityCard? = null
 ) {
     val loadedTasks by viewModel.tasks.collectAsState()
     val tasks = loadedTasks.orEmpty()
@@ -156,11 +158,26 @@ fun TaskListScreen(
             if (isLoading) {
                 // Draw nothing for the few milliseconds before the first query returns.
             } else if (tasks.isEmpty()) {
-                EmptyState()
+                if (reliabilityCard == null) {
+                    EmptyState()
+                } else {
+                    // Scrolls, so the card can never squeeze the empty-state message off screen.
+                    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                        ReliabilityCardView(reliabilityCard, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+                        EmptyState(centered = false)
+                    }
+                }
             } else if (visibleTasks.isEmpty()) {
                 NoMatchesState()
             } else {
                 LazyColumn(contentPadding = PaddingValues(vertical = 10.dp, horizontal = 4.dp)) {
+                    // First item rather than pinned above the list, so it scrolls away instead of
+                    // shrinking the task list to a sliver until it's hidden.
+                    reliabilityCard?.let { card ->
+                        item(key = "reliability-card") {
+                            ReliabilityCardView(card, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                        }
+                    }
                     itemsIndexed(visibleTasks, key = { _, task -> task.id }) { index, task ->
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { value ->
@@ -375,13 +392,16 @@ private fun HeroHeader(activeCount: Int?, onOpenStats: () -> Unit) {
 }
 
 @Composable
-private fun EmptyState() {
+private fun EmptyState(centered: Boolean = true) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 40.dp),
+        // Bottom padding keeps the message clear of the NEW TASK button.
+        modifier = if (centered) {
+            Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, bottom = 110.dp)
+        } else {
+            Modifier.fillMaxWidth().padding(start = 40.dp, end = 40.dp, top = 28.dp, bottom = 110.dp)
+        },
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = if (centered) Arrangement.Center else Arrangement.Top
     ) {
         HardShadow(offset = 4.dp) {
             Box(

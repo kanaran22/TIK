@@ -38,7 +38,10 @@ fun HardShadow(
     offset: Dp = 5.dp,
     content: @Composable () -> Unit
 ) {
-    Box(modifier = modifier) {
+    // propagateMinConstraints: when a caller fixes the width (fillMaxWidth, weight…), the content
+    // is stretched to match. Without it the shadow filled that width while a wrap-content child
+    // stayed narrow, leaving a bare black slab beside it (e.g. the delete dialog's CANCEL button).
+    Box(modifier = modifier, propagateMinConstraints = true) {
         Box(
             modifier = Modifier
                 .matchParentSize()

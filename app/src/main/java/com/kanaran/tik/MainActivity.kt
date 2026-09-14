@@ -1,7 +1,10 @@
 package com.kanaran.tik
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -14,8 +17,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.kanaran.tik.reminder.NotificationHelper
+import com.kanaran.tik.ui.list.ReliabilityCard
 import com.kanaran.tik.ui.navigation.NavGraph
 import com.kanaran.tik.ui.theme.TikTheme
+import com.kanaran.tik.util.BackgroundReliability
 import com.kanaran.tik.util.PermissionUtils
 import com.kanaran.tik.viewmodel.TaskViewModel
 import com.kanaran.tik.viewmodel.TaskViewModelFactory
@@ -53,10 +58,26 @@ class MainActivity : ComponentActivity() {
      */
     private var pendingTaskId by mutableStateOf<Long?>(null)
 
+    private val prefs by lazy { getSharedPreferences(PREFS, MODE_PRIVATE) }
+
+    /** Whether the user has hidden the "keep reminders on time" card. */
+    private var reliabilityCardHidden by mutableStateOf(false)
+
+    /** Debug builds only: pretend to be another phone brand, to exercise the Vivo card on an emulator. */
+    private var forcedBrand: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         pendingTaskId = intent.taskIdExtra()
+        reliabilityCardHidden = prefs.getBoolean(PREF_RELIABILITY_HIDDEN, false)
+        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            forcedBrand = intent.getStringExtra(EXTRA_DEBUG_FORCE_BRAND)
+        }
+        val (manufacturer, brand) = BackgroundReliability.device(forcedBrand)
+        val batteryHungryPhone = BackgroundReliability.isAggressive(manufacturer, brand)
+        val vivo = BackgroundReliability.isVivo(manufacturer, brand)
+        val autostartIntent = BackgroundReliability.autostartIntent(this, vivo)
 
         setContent {
             TikTheme {
@@ -75,7 +96,25 @@ class MainActivity : ComponentActivity() {
                     onRequestNotificationPermission = ::requestNotificationPermission,
                     onRequestLocationPermission = ::requestLocationPermission,
                     onRequestBackgroundLocationPermission = ::requestBackgroundLocationPermission,
-                    onRequestExactAlarmPermission = ::openExactAlarmSettings
+                    onRequestExactAlarmPermission = ::openExactAlarmSettings,
+                    reliabilityCard = if (batteryHungryPhone && !reliabilityCardHidden) {
+                        ReliabilityCard(
+                            isVivo = vivo,
+                            steps = BackgroundReliability.steps(vivo),
+                            canOpenAutostart = autostartIntent != null,
+                            onOpenAppSettings = { openSettings(BackgroundReliability.appSettingsIntent(this)) },
+                            onOpenAutostart = { openSettings(autostartIntent ?: BackgroundReliability.appSettingsIntent(this)) },
+                            onDismiss = { persistReliabilityCardHidden(true) }
+                        )
+                    } else {
+                        null
+                    },
+                    versionLabel = versionLabel(),
+                    onShowReliabilityTips = if (batteryHungryPhone) {
+                        { persistReliabilityCardHidden(false) }
+                    } else {
+                        null
+                    }
                 )
             }
         }
@@ -90,6 +129,32 @@ class MainActivity : ComponentActivity() {
 
     private fun Intent.taskIdExtra(): Long? =
         getLongExtra(NotificationHelper.EXTRA_TASK_ID, -1L).takeIf { it != -1L }
+
+    private fun persistReliabilityCardHidden(hidden: Boolean) {
+        reliabilityCardHidden = hidden
+        prefs.edit().putBoolean(PREF_RELIABILITY_HIDDEN, hidden).apply()
+    }
+
+    /** Opens a settings screen; vendor screens move between OS versions, so fall back to tik's App info. */
+    private fun openSettings(intent: Intent) {
+        try {
+            startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            startActivity(BackgroundReliability.appSettingsIntent(this))
+        } catch (e: SecurityException) {
+            startActivity(BackgroundReliability.appSettingsIntent(this))
+        }
+    }
+
+    private fun versionLabel(): String {
+        val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getPackageInfo(packageName, 0)
+        }
+        return "tik ${info.versionName}"
+    }
 
     override fun onResume() {
         super.onResume()
@@ -122,5 +187,13 @@ class MainActivity : ComponentActivity() {
             }
             startActivity(intent)
         }
+    }
+
+    companion object {
+        private const val PREFS = "tik_prefs"
+        private const val PREF_RELIABILITY_HIDDEN = "reliability_card_hidden"
+
+        /** Debug builds only: `adb shell am start -n com.kanaran.tik/.MainActivity --es debug_force_brand vivo`. */
+        const val EXTRA_DEBUG_FORCE_BRAND = "debug_force_brand"
     }
 }

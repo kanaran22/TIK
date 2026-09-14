@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -43,7 +45,12 @@ import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatsScreen(viewModel: TaskViewModel, onBack: () -> Unit) {
+fun StatsScreen(
+    viewModel: TaskViewModel,
+    onBack: () -> Unit,
+    versionLabel: String = "",
+    onShowReliabilityTips: (() -> Unit)? = null
+) {
     val tasks = viewModel.tasks.collectAsState().value.orEmpty()
     val completions by viewModel.completions.collectAsState()
     val today = ScheduleUtil.todayEpochDay()
@@ -68,6 +75,29 @@ fun StatsScreen(viewModel: TaskViewModel, onBack: () -> Unit) {
                     }
                 }
             )
+        },
+        bottomBar = {
+            // Which build is installed — handy for checking an update actually went on.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(versionLabel.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (onShowReliabilityTips != null) {
+                    Text(
+                        "BATTERY TIPS",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier
+                            .clickable(onClick = onShowReliabilityTips)
+                            .padding(6.dp)
+                    )
+                }
+            }
         }
     ) { padding ->
         Column(
