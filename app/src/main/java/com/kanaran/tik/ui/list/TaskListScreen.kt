@@ -87,9 +87,11 @@ fun TaskListScreen(
     onEditTask: (Long) -> Unit,
     onOpenStats: () -> Unit
 ) {
-    val tasks by viewModel.tasks.collectAsState()
+    val loadedTasks by viewModel.tasks.collectAsState()
+    val tasks = loadedTasks.orEmpty()
+    val isLoading = loadedTasks == null
     val completions by viewModel.completions.collectAsState()
-    val activeCount = tasks.count { it.isActive }
+    val activeCount = if (isLoading) null else tasks.count { it.isActive }
 
     var searchQuery by remember { mutableStateOf("") }
     var sortOption by remember { mutableStateOf(SortOption.NEXT) }
@@ -151,7 +153,9 @@ fun TaskListScreen(
                 )
             }
 
-            if (tasks.isEmpty()) {
+            if (isLoading) {
+                // Draw nothing for the few milliseconds before the first query returns.
+            } else if (tasks.isEmpty()) {
                 EmptyState()
             } else if (visibleTasks.isEmpty()) {
                 NoMatchesState()
@@ -317,7 +321,7 @@ private fun SearchSortFilterBar(
 }
 
 @Composable
-private fun HeroHeader(activeCount: Int, onOpenStats: () -> Unit) {
+private fun HeroHeader(activeCount: Int?, onOpenStats: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -334,18 +338,20 @@ private fun HeroHeader(activeCount: Int, onOpenStats: () -> Unit) {
                     modifier = Modifier.graphicsLayer { rotationZ = -1.6f }
                 )
                 Spacer(modifier = Modifier.height(6.dp))
-                Box(
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.secondary)
-                        .border(BorderStroke(2.5.dp, Ink))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                        .graphicsLayer { rotationZ = 1.4f }
-                ) {
-                    Text(
-                        if (activeCount == 0) "ALL CAUGHT UP" else "$activeCount ACTIVE",
-                        color = Ink,
-                        style = MaterialTheme.typography.labelSmall
-                    )
+                if (activeCount != null) {
+                    Box(
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.secondary)
+                            .border(BorderStroke(2.5.dp, Ink))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                            .graphicsLayer { rotationZ = 1.4f }
+                    ) {
+                        Text(
+                            if (activeCount == 0) "ALL CAUGHT UP" else "$activeCount ACTIVE",
+                            color = Ink,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
                 }
             }
             Box(

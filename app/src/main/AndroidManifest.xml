@@ -70,12 +70,17 @@
             android:name=".reminder.SnoozeAlarmReceiver"
             android:exported="false" />
 
-        <!-- Re-schedules alarms and geofences after the device reboots -->
+        <!-- Re-arms alarms and geofences after reboot, app update, clock/time-zone change, or exact-alarm permission regrant -->
         <receiver
             android:name=".reminder.BootReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
 

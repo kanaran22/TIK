@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.kanaran.tik.TikApplication
-import com.kanaran.tik.data.RepeatType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -21,14 +20,7 @@ class MarkDoneReceiver : BroadcastReceiver() {
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val task = app.repository.getById(taskId)
-                if (task != null) {
-                    if (RepeatType.fromStorage(task.repeatType) == RepeatType.ONCE) {
-                        app.repository.setSeriesActive(task, active = false)
-                    } else {
-                        app.repository.setCompletedToday(task, completed = true)
-                    }
-                }
+                app.repository.setDoneToday(taskId, done = true)
                 app.notificationHelper.dismiss(taskId)
             } finally {
                 pendingResult.finish()

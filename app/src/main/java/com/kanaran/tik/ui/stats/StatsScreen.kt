@@ -44,7 +44,7 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatsScreen(viewModel: TaskViewModel, onBack: () -> Unit) {
-    val tasks by viewModel.tasks.collectAsState()
+    val tasks = viewModel.tasks.collectAsState().value.orEmpty()
     val completions by viewModel.completions.collectAsState()
     val today = ScheduleUtil.todayEpochDay()
 

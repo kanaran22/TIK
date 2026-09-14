@@ -142,9 +142,11 @@ fun AddEditTaskScreen(
             longitude = longitude,
             radiusMeters = radiusMeters,
             triggerType = triggerType.name,
-            // A schedule/time/place edit starts the occurrence bookkeeping fresh.
+            // An edited time or place may legitimately fire again today, so "already reminded"
+            // resets. Completion does not: saving a task you'd ticked (even with no changes)
+            // used to untick it, while today's row stayed in the streak history.
             lastFiredEpochDay = null,
-            lastCompletedEpochDay = null
+            lastCompletedEpochDay = existingTask?.lastCompletedEpochDay
         )
         viewModel.save(task)
         onDone()

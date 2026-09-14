@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.kanaran.tik.data.RepeatType
 import com.kanaran.tik.data.ScheduleUtil
 import com.kanaran.tik.data.Task
+import com.kanaran.tik.data.TaskRules
 import com.kanaran.tik.data.TriggerType
 import com.kanaran.tik.ui.components.BrutalistCheckbox
 import com.kanaran.tik.ui.components.HardShadow
@@ -48,13 +49,8 @@ fun TaskItem(
 ) {
     val hasTime = task.isTimeReminderEnabled && task.timeOfDayMinutes != null
     val hasPlace = task.isLocationReminderEnabled
-    val repeat = RepeatType.fromStorage(task.repeatType)
 
-    val isChecked = if (repeat == RepeatType.ONCE) {
-        !task.isActive
-    } else {
-        task.lastCompletedEpochDay == ScheduleUtil.todayEpochDay()
-    }
+    val isChecked = TaskRules.isCheckedToday(task, ScheduleUtil.todayEpochDay())
 
     HardShadow(
         modifier = modifier

@@ -3,6 +3,8 @@ package com.kanaran.tik.widget
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -18,6 +20,8 @@ import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.appWidgetBackground
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
@@ -39,17 +43,19 @@ import androidx.glance.unit.ColorProvider
 import com.kanaran.tik.TikApplication
 import com.kanaran.tik.MainActivity
 import com.kanaran.tik.R
-import com.kanaran.tik.data.RepeatType
 import com.kanaran.tik.data.ScheduleUtil
 import com.kanaran.tik.data.Task
+import com.kanaran.tik.data.TaskRules
 import com.kanaran.tik.reminder.NotificationHelper
 import com.kanaran.tik.ui.components.formatMinutesOfDay
+import kotlinx.coroutines.flow.first
 
 /**
- * Home screen widget: a glanceable list of active reminders you can check off
- * without opening the app. Any task change made anywhere in the app (or from
- * a notification action) re-renders every placed instance, via the
- * [TaskRepository][com.kanaran.tik.data.TaskRepository] `widgetUpdater` hook.
+ * Home screen widget: a scrollable list of today's reminders you can tick and untick
+ * without opening the app. It collects the task table as a Flow inside its composition,
+ * so any change — from the app, a notification action, or the widget itself — shows up
+ * immediately; the [TaskRepository][com.kanaran.tik.data.TaskRepository] `widgetUpdater`
+ * hook only matters for starting a session when none is running.
  */
 class TikWidget : GlanceAppWidget() {
 
@@ -57,10 +63,16 @@ class TikWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val app = context.applicationContext as TikApplication
-        val tasks = app.repository.getActiveTasks().take(6)
+        val allTasks = app.repository.observeAll()
+        val initial = allTasks.first()
 
         provideContent {
-            WidgetContent(tasks)
+            // Must be collected *inside* the composition. While a Glance session is alive,
+            // updateAll() only recomposes it — provideGlance is not called again — so a list
+            // read once up there went stale: tick then quickly untick, and the widget kept
+            // showing it ticked even though the database had it unticked.
+            val tasks by allTasks.collectAsState(initial)
+            WidgetContent(TaskRules.widgetOrder(tasks, ScheduleUtil.todayEpochDay()))
         }
     }
 }
@@ -95,11 +107,12 @@ private fun WidgetContent(tasks: List<Task>) {
                 style = TextStyle(color = ColorProvider(R.color.widget_muted), fontSize = 13.sp)
             )
         } else {
-            Column(modifier = GlanceModifier.fillMaxWidth()) {
-                tasks.forEachIndexed { index, task ->
-                    TaskRow(task)
-                    if (index != tasks.lastIndex) {
-                        Spacer(modifier = GlanceModifier.height(6.dp))
+            // Scrolls. A plain Column used to render only what fit (about five rows) and
+            // silently drop the rest.
+            LazyColumn(modifier = GlanceModifier.fillMaxWidth()) {
+                items(tasks, itemId = { it.id }) { task ->
+                    Column(modifier = GlanceModifier.fillMaxWidth().padding(bottom = 6.dp)) {
+                        TaskRow(task)
                     }
                 }
             }
@@ -126,12 +139,7 @@ private fun AddTaskButton() {
 @Composable
 private fun TaskRow(task: Task) {
     val context = LocalContext.current
-    val repeat = RepeatType.fromStorage(task.repeatType)
-    val isChecked = if (repeat == RepeatType.ONCE) {
-        false // an active ONCE task in this list is by definition not done yet
-    } else {
-        task.lastCompletedEpochDay == ScheduleUtil.todayEpochDay()
-    }
+    val isChecked = TaskRules.isCheckedToday(task, ScheduleUtil.todayEpochDay())
 
     Row(
         modifier = GlanceModifier
@@ -207,19 +215,8 @@ class ToggleTaskAction : ActionCallback {
         val taskId = parameters[TaskIdKey] ?: return
         val app = context.applicationContext as TikApplication
         val task = app.repository.getById(taskId) ?: return
-
-        val isChecked = if (RepeatType.fromStorage(task.repeatType) == RepeatType.ONCE) {
-            false
-        } else {
-            task.lastCompletedEpochDay == ScheduleUtil.todayEpochDay()
-        }
-        val newChecked = !isChecked
-
-        if (RepeatType.fromStorage(task.repeatType) == RepeatType.ONCE) {
-            app.repository.setSeriesActive(task, active = !newChecked)
-        } else {
-            app.repository.setCompletedToday(task, completed = newChecked)
-        }
-        // TaskRepository's widgetUpdater already re-renders every placed widget instance.
+        // Flip what the database says, not what the widget happened to be showing.
+        val checkedNow = TaskRules.isCheckedToday(task, ScheduleUtil.todayEpochDay())
+        app.repository.setDoneToday(taskId, done = !checkedNow)
     }
 }

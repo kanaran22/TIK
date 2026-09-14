@@ -42,7 +42,8 @@ mono type, sharp corners throughout — in both light and dark mode.
 app/src/main/java/com/kanaran/tik/
 ├── data/          Room entities (Task, SavedPlace, TaskCompletion), DAOs,
 │                  database, repository, RepeatType, ScheduleUtil (repeat
-│                  calendar math) and StreakUtil (streak/completion-rate math)
+│                  calendar math), StreakUtil (streak/completion-rate math) and
+│                  TaskRules (the shared done / due / on-the-widget rules)
 ├── reminder/      AlarmManager scheduling, Geofencing, notifications,
 │                  boot rebooting, "mark done"/"snooze" actions
 ├── ui/
@@ -84,8 +85,15 @@ project easy to read end-to-end.
   task's window? Only then does it notify. This means a combined task needs
   **no alarm at all** — the window is enforced entirely in the geofence
   receiver.
-- **`BootReceiver`** re-arms every active alarm/geofence after the device
-  restarts (both are cleared by the OS on reboot).
+- **Re-arming.** A reboot clears every alarm and geofence, and so does a
+  force-stop — including the "clean up"/battery-boost buttons many Android skins
+  ship. `TikApplication.onCreate` re-arms everything whenever the process starts,
+  and `BootReceiver` also re-arms on reboot, app update, clock or time-zone
+  change (fire times are absolute instants), and the exact-alarm permission being
+  granted again. Re-arming is idempotent: every alarm and geofence is keyed per task.
+- **Done means done.** One set of rules in `TaskRules` decides what's ticked, what's
+  due, and what the widget shows. A task already marked done today is not reminded
+  later that day — by its alarm, its geofence, or a pending snooze.
 - Picking a place doesn't require the Google Maps SDK/API key — you either
   search an address (with a live suggestions dropdown, debounced via
   `Geocoder`) or tap "Use current location". Getting the current location
@@ -96,15 +104,22 @@ project easy to read end-to-end.
 
 ## Home screen widget
 
-`TikWidget` (Jetpack Glance, `androidx.glance:glance-appwidget`) shows up
-to six active tasks with a checkbox, title, and time/place summary, plus a
-"+ NEW" button. It re-renders automatically after *any* task change from
-anywhere — the app UI, a notification action, or the widget itself — via a
-single `widgetUpdater` hook threaded through `TaskRepository`, so it never
-needs its own polling or a separate data path. Tapping a task's checkbox
-mutates the database directly through an `ActionCallback` (mirroring
-`TaskViewModel.toggleChecked`); tapping the row or "+ NEW" deep-links into
-`MainActivity` with the same `EXTRA_TASK_ID` a notification tap uses. Card,
+`TikWidget` (Jetpack Glance, `androidx.glance:glance-appwidget`) shows a
+scrolling list of today's tasks — everything active, plus anything ticked today,
+so a mistaken tick can be undone — with a checkbox, title, and time/place summary,
+plus a "+ NEW" button. Tasks are ordered newest first and **don't move when
+ticked**, so the same tap unticks them.
+
+It collects the task table as a Flow *inside* its composition. That matters: while
+a Glance session is alive, `updateAll()` only recomposes it and never calls
+`provideGlance` again, so data read once up front goes stale — the widget used to
+keep showing a task ticked after it had been unticked. The `widgetUpdater` hook in
+`TaskRepository` now only has to start a session when none is running.
+
+A checkbox tap runs `ToggleTaskAction`, which flips what the *database* says (via
+`TaskRepository.setDoneToday`, the same call the list and the notification's
+"Mark as done" use); tapping the row or "+ NEW" deep-links into `MainActivity` with
+the same `EXTRA_TASK_ID` a notification tap uses. Card,
 checkbox, and button borders are plain `<shape>` drawables (with `-night`
 color variants) rather than a Glance border modifier, since RemoteViews-backed
 widgets render those more reliably than any first-party alternative.
@@ -130,8 +145,8 @@ To change the schema:
 
 ## Tests
 
-`ScheduleUtil` and `StreakUtil` hold all the calendar math — repeat patterns, next
-fire times, arming windows, streaks and completion rates — and have no Android
+`ScheduleUtil`, `StreakUtil` and `TaskRules` hold all the calendar math and the
+shared "is it done / is it due / is it on the widget" rules, with no Android
 dependencies, so they're covered by plain JVM unit tests:
 
 ```bash
@@ -141,7 +156,10 @@ dependencies, so they're covered by plain JVM unit tests:
 
 The suite pins down the fiddly edges: inclusive date-range bounds, the Monday=bit 0
 weekday mask, a fire time landing exactly "now", unscheduled days not breaking a
-streak, and completion rate never looking back past a task's creation day.
+streak, completion rate never looking back past a task's creation day, and
+regressions for shipped bugs — a one-off task that vanished from the widget when
+ticked, a ticked task that still fired its reminder, and ticked tasks jumping out
+of the widget's visible rows.
 
 ## Permissions this app requests, and why
 

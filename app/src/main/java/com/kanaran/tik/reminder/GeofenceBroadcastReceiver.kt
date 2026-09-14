@@ -8,6 +8,7 @@ import com.kanaran.tik.TikApplication
 import com.kanaran.tik.R
 import com.kanaran.tik.data.ScheduleUtil
 import com.kanaran.tik.data.Task
+import com.kanaran.tik.data.TaskRules
 import com.kanaran.tik.data.TriggerType
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofenceStatusCodes
@@ -51,11 +52,9 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
     }
 
     private suspend fun handleTransition(context: Context, app: TikApplication, task: Task, transition: Int) {
-        if (!task.isActive) return
-
         val today = ScheduleUtil.todayEpochDay()
+        if (!TaskRules.isDueToRemind(task, today)) return // inactive, already done today, or not an armed day
         if (task.lastFiredEpochDay == today) return // already reminded today
-        if (!ScheduleUtil.isScheduledDay(task, today)) return // not an armed day
         if (!ScheduleUtil.isWithinWindowNow(task)) return // outside the time window, if any — a miss stays silent
 
         val wanted = TriggerType.fromStorage(task.triggerType)

@@ -2,7 +2,6 @@ package com.kanaran.tik.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.kanaran.tik.data.RepeatType
 import com.kanaran.tik.data.SavedPlace
 import com.kanaran.tik.data.SavedPlaceRepository
 import com.kanaran.tik.data.Task
@@ -18,8 +17,10 @@ class TaskViewModel(
     private val savedPlaceRepository: SavedPlaceRepository
 ) : ViewModel() {
 
-    val tasks: StateFlow<List<Task>> = repository.observeAll()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    /** All tasks, or null until the database has answered — so "still loading" can never be
+     *  mistaken for "you have no tasks" (which used to flash ALL CAUGHT UP on every cold start). */
+    val tasks: StateFlow<List<Task>?> = repository.observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** taskId -> the set of epoch days it was marked done, for streaks/stats. */
     val completions: StateFlow<Map<Long, Set<Long>>> = repository.observeAllCompletions()
@@ -35,13 +36,7 @@ class TaskViewModel(
 
     /** The list checkbox: a one-off task completes for good; a repeating task completes just today. */
     fun toggleChecked(task: Task, checked: Boolean) {
-        viewModelScope.launch {
-            if (RepeatType.fromStorage(task.repeatType) == RepeatType.ONCE) {
-                repository.setSeriesActive(task, active = !checked)
-            } else {
-                repository.setCompletedToday(task, completed = checked)
-            }
-        }
+        viewModelScope.launch { repository.setDoneToday(task.id, done = checked) }
     }
 
     fun delete(task: Task) {

@@ -9,6 +9,7 @@ import com.kanaran.tik.R
 import com.kanaran.tik.TikApplication
 import com.kanaran.tik.data.ScheduleUtil
 import com.kanaran.tik.data.Task
+import com.kanaran.tik.data.TaskRules
 import com.kanaran.tik.util.LocationUtil
 import com.kanaran.tik.util.PermissionUtils
 import kotlinx.coroutines.CoroutineScope
@@ -39,11 +40,13 @@ class AlarmReceiver : BroadcastReceiver() {
                 if (isWindowStartCheck) {
                     handleWindowStartCheck(context, app, task)
                 } else {
-                    app.notificationHelper.showReminder(
-                        task,
-                        context.getString(R.string.reminder_reason_time)
-                    )
-                    // Also arms the task's next occurrence, if its repeat schedule has one.
+                    // Already ticked off today? Stay quiet — but still arm the next occurrence.
+                    if (TaskRules.isDueToRemind(task, ScheduleUtil.todayEpochDay())) {
+                        app.notificationHelper.showReminder(
+                            task,
+                            context.getString(R.string.reminder_reason_time)
+                        )
+                    }
                     app.repository.recordFired(task)
                 }
             } finally {
@@ -59,9 +62,12 @@ class AlarmReceiver : BroadcastReceiver() {
      * covers them arriving later in the window.
      */
     private suspend fun handleWindowStartCheck(context: Context, app: TikApplication, task: Task) {
+        // A leftover alarm for a task that has since been edited to time-only or place-only.
+        if (!task.isCombined) return
+
         val today = ScheduleUtil.todayEpochDay()
         val alreadyRemindedToday = task.lastFiredEpochDay == today
-        val armedToday = ScheduleUtil.isScheduledDay(task, today) && ScheduleUtil.isWithinWindowNow(task)
+        val armedToday = TaskRules.isDueToRemind(task, today) && ScheduleUtil.isWithinWindowNow(task)
 
         if (alreadyRemindedToday || !armedToday || !isInsideRadius(context, task)) {
             // Nothing to fire now; make sure the next day's check is still armed.

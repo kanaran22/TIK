@@ -4,6 +4,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.kanaran.tik.TikApplication
+import com.kanaran.tik.data.ScheduleUtil
+import com.kanaran.tik.data.TaskRules
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -22,8 +24,9 @@ class SnoozeAlarmReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val task = app.repository.getById(taskId)
-                // Don't re-nag if the task was deleted, paused, or already marked done in the meantime.
-                if (task != null && task.isActive) {
+                // Don't re-nag if the task was deleted, or marked done in the meantime — for a
+                // repeating task "done" means today's occurrence, which isActive alone can't see.
+                if (task != null && TaskRules.isDueToRemind(task, ScheduleUtil.todayEpochDay())) {
                     app.notificationHelper.showReminder(task, reasonText)
                 }
             } finally {
